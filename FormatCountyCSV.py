@@ -1,8 +1,8 @@
 import csv
 if __name__ == '__main__':
     countyFile = r'C:\GisWork\UspsCountyProject\CountyProjectOutputFile.txt'
-    outputUspsFile = 'C:\GisWork\UspsCountyProject\CountyProjectOutputFull.csv'
-    outputDaggetFile = 'C:\GisWork\UspsCountyProject\Counties\YSN1130.txt'
+    outputUspsFile = r'C:\GisWork\UspsCountyProject\CountyProjectOutputFull.csv'
+    outputDaggetFile = r'C:\GisWork\UspsCountyProject\Counties\YSN1130.txt'
     counties = {}
     first = True
     with open(countyFile, 'r') as addresses, \
@@ -21,4 +21,4 @@ if __name__ == '__main__':
                     fields[-2] = fields[-2][:15]
                     outputCsv.writerow(fields)
             except:
-                print row
+                print(row)

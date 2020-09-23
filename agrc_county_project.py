@@ -76,13 +76,13 @@ def createFixedLengthText(row):
             for i in range(11):
                 fields[i] = fields[i][:fieldLengths[i]] + (fieldLengths[i] - len(fields[i])) * ' '
                 if len(fields[i]) != fieldLengths[i]:
-                    print 'Field length error: {}'.format(fields[i])
+                    print(f'Field length error: {fields[i]}')
             for i in (11, 12):
                 fields[i] = (fieldLengths[i] - len(fields[i])) * ' ' + fields[i][:fieldLengths[i]]
                 if len(fields[i]) != fieldLengths[i]:
-                    print 'Field length error: {}'.format(fields[i])
+                    print(f'Field length error: {fields[i]}')
         except:
-            print row
+            print(row)
 
         return ''.join(fields)
 
@@ -96,16 +96,16 @@ def createCsvRow(row):
         fields[-1] = fields[-1][:15]
         fields[-2] = fields[-2][:15]
     except:
-        print row
+        print(row)
 
     return ','.join(fields)
 
 
 if __name__ == '__main__':
-    print uniqueRunNum
+    print(uniqueRunNum)
     county_ids = ['49009']
     output_folder = r'C:\GisWork\UspsCountyProject\DAGGETT'
-    addressPointsWorkspace = 'C:\Users\kwalker\Documents\ArcGIS\Projects\Daggett Structure Address Points\Daggett Structure Address Points.gdb'
+    addressPointsWorkspace = r'C:\Users\kwalker\Documents\ArcGIS\Projects\Daggett Structure Address Points\Daggett Structure Address Points.gdb'
     addressPoints = 'DaggetAddrPntsWithStructure'
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
@@ -184,7 +184,7 @@ if __name__ == '__main__':
     #     county_selection_where = "CountyID IN ('{}')".format("'','".join([str(c) for c in county_ids]))
 
     with arcpy.da.SearchCursor(addrPointsWithDistrict, addrFields) as addrPointCursor, \
-         arcpy.da.InsertCursor(countyProject, countyProjectFields) as countyProjectCursor:
+         arcpy.da.InsertCursor(countyProject, countyProjectFields) as countyProjectCursor:  # pylint: disable=no-member
             # outputCsv = csv.writer(outputFile)
             # outputCsv.writerow(countyProjectFields)
             for addrRow in addrPointCursor:
@@ -234,8 +234,8 @@ if __name__ == '__main__':
                         rowString = createCsvRow([str(x) for x in row])
                         outputFile.write(rowString + '\n')
                     except:
-                        print row
+                        print(row)
 
                 outputFile.write('\n')
 
-    print '! - complete - !'
+    print('! - complete - !')
