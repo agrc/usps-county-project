@@ -1,11 +1,13 @@
-County_Project_Submission_Template.gdb/
+
+County_Project_Submission_Template.gdb
+
+#: coverage report
+.coverage
 
 *.py[cod]
 
-# C extensions
-*.so
-
 # Packages
+.eggs/
 *.egg
 *.egg-info
 dist
@@ -24,17 +26,13 @@ __pycache__
 # Installer logs
 pip-log.txt
 
-# Unit test / coverage reports
-.coverage
-.tox
-nosetests.xml
+*.pyt.xml
+*.csv.xml
+arc.dir
+.pytest_cache
+__pycache__
 
-# Translations
-*.mo
+.env/
+.DS_Store
+cov.xml
 
-# Mr Developer
-.mr.developer.cfg
-.project
-.pydevproject
-TableGeocoder/TestRunner.py
-TableGeocoder/Data/TestOutput
