@@ -108,18 +108,18 @@ if __name__ == '__main__':
     uniqueRunNum = strftime("%Y%m%d_%H%M%S")
     print(uniqueRunNum)
 
-    county_ids = ['49009']
+    county_ids = ['49055']
 
-    countyProjectTemplate = r'County_Project_Submission_Template.gdb\CP_Submit_template'
-    sgid_connection = r'Database Connections\Connection to sgid.agrc.utah.gov.sde'
+    countyProjectTemplate = r'c:\gis\git\usps-county-project\County_Project_Submission_Template.gdb\CP_Submit_template'
+    sgid_connection = r'c:\gis\projects\fastdata\internal.agrc.utah.gov.sde'
 
     #: Source data
-    addressPointsWorkspace = r'C:\Users\kwalker\Documents\ArcGIS\Projects\Daggett Structure Address Points\Daggett Structure Address Points.gdb'
-    addressPoints = 'DaggetAddrPntsWithStructure'
+    addressPointsWorkspace = r'c:\gis\projects\fastdata\USPSAddress\Address.gdb'
+    addressPoints = 'WayneCo20200923'
     addressPoints = os.path.join(addressPointsWorkspace, addressPoints)
 
     #: Set up output locations
-    output_folder = r'C:\GisWork\UspsCountyProject\DAGGETT'
+    output_folder = r'c:\gis\projects\fastdata\USPSAddress\out'
     outputGdb_name = 'outputs.gdb'
     outputGdb = os.path.join(output_folder, outputGdb_name)
 
@@ -135,7 +135,7 @@ if __name__ == '__main__':
     )
 
     #: District identity datasets
-    congressionalDistricts = os.path.join(sgid_connection, 'SGID10.POLITICAL.USCongressDistricts2012')
+    congressionalDistricts = os.path.join(sgid_connection, 'SGID.POLITICAL.USCongressDistricts2012')
     addrPointsWithDistrict = os.path.join(output_folder, outputGdb_name, 'addressPointsProject' + uniqueRunNum)
 
     countyProjectFields = [
