@@ -35,55 +35,54 @@ countyFipsDomain = {
     49037: 'SAN JUAN',
 }
 
-fixedTxtFields = [
-    'CCONTACT NAME',
-    'COMPANY NAME',
-    'ADDRESS LINE',
-    'CITY',
-    'STATE',
-    'ZIP5',
-    'ZIP4',
-    'CONGRESSIONAL CODE',
-    'COUNTY CODE',
-    'FILLER',
-    'Key',
-    'LATITUDE',
-    'LONGITUDE',
-]
+# fixedTxtFields = [
+#     'CCONTACT NAME',
+#     'COMPANY NAME',
+#     'ADDRESS LINE',
+#     'CITY',
+#     'STATE',
+#     'ZIP5',
+#     'ZIP4',
+#     'CONGRESSIONAL CODE',
+#     'COUNTY CODE',
+#     'FILLER',
+#     'Key',
+#     'LATITUDE',
+#     'LONGITUDE',
+# ]
 
-fixedTxtFieldLengths = [
-    42,
-    66,
-    66,
-    28,
-    2,
-    5,
-    4,
-    4,
-    5,
-    19,
-    50,
-    15,
-    15,
-]
+# fixedTxtFieldLengths = [
+#     42,
+#     66,
+#     66,
+#     28,
+#     2,
+#     5,
+#     4,
+#     4,
+#     5,
+#     19,
+#     50,
+#     15,
+#     15,
+# ]
 
+# def createFixedLengthText(row):
+#     fieldLengths = fixedTxtFieldLengths
+#     try:
+#         fields = list(row)
+#         for i in range(11):
+#             fields[i] = fields[i][:fieldLengths[i]] + (fieldLengths[i] - len(fields[i])) * ' '
+#             if len(fields[i]) != fieldLengths[i]:
+#                 print(f'Field length error: {fields[i]}')
+#         for i in (11, 12):
+#             fields[i] = (fieldLengths[i] - len(fields[i])) * ' ' + fields[i][:fieldLengths[i]]
+#             if len(fields[i]) != fieldLengths[i]:
+#                 print(f'Field length error: {fields[i]}')
+#     except:
+#         print(row)
 
-def createFixedLengthText(row):
-    fieldLengths = fixedTxtFieldLengths
-    try:
-        fields = list(row)
-        for i in range(11):
-            fields[i] = fields[i][:fieldLengths[i]] + (fieldLengths[i] - len(fields[i])) * ' '
-            if len(fields[i]) != fieldLengths[i]:
-                print(f'Field length error: {fields[i]}')
-        for i in (11, 12):
-            fields[i] = (fieldLengths[i] - len(fields[i])) * ' ' + fields[i][:fieldLengths[i]]
-            if len(fields[i]) != fieldLengths[i]:
-                print(f'Field length error: {fields[i]}')
-    except:
-        print(row)
-
-    return ''.join(fields)
+#     return ''.join(fields)
 
 
 def createCsvRow(row):
@@ -119,7 +118,8 @@ if __name__ == '__main__':
     addressPoints = os.path.join(addressPointsWorkspace, addressPoints)
 
     #: Set up output locations
-    output_folder = r'c:\gis\projects\fastdata\USPSAddress\out'
+    print('Setting up output spaces...')
+    output_folder = r'c:\gis\projects\fastdata\USPSAddress\out2'
     outputGdb_name = 'outputs.gdb'
     outputGdb = os.path.join(output_folder, outputGdb_name)
 
@@ -198,42 +198,45 @@ if __name__ == '__main__':
     arcpy.MakeFeatureLayer_management(addressPoints, address_layer, county_selection_where)
 
     #: Get the congressional district for each address point
+    print('Running Congressional District identify...')
     arcpy.env.outputCoordinateSystem = arcpy.SpatialReference(4326)
     arcpy.env.geographicTransformations = 'NAD_1983_To_WGS_1984_5'
     arcpy.Identity_analysis(address_layer, congressionalDistricts, addrPointsWithDistrict)
 
     #: Copy address points w/district info to countyProject feature class
+    print('Copying data to output feature class and list...')
     with arcpy.da.SearchCursor(addrPointsWithDistrict, addrFields) as addrPointCursor,\
          arcpy.da.InsertCursor(countyProject, countyProjectFields) as countyProjectCursor:
 
         for addrRow in addrPointCursor:
+            object_id, county_id, full_address, city, zip_code, district, shape_y, shape_x = addrRow
             countyRow = []
             # County Project NAME
-            countyRow.append(countyFipsDomain[int(addrRow[addrFields.index('CountyID')])])
+            countyRow.append(countyFipsDomain[int(county_id)])
             # County Project COMPANYNAME
             countyRow.append('AGRC')
             # County Project ADDRESSLINE
-            countyRow.append(addrRow[addrFields.index('FullAdd')])
+            countyRow.append(full_address)
             # County Project CITY
-            countyRow.append(addrRow[addrFields.index('City')])
+            countyRow.append(city)
             # County Project STATE
             countyRow.append('UT')
             # County Project ZIP5
-            countyRow.append(addrRow[addrFields.index('ZipCode')])
+            countyRow.append(zip_code)
             # County Project ZIP4
             countyRow.append(0)
             # County Project CONGRESSIONALCODE
-            countyRow.append('UT0' + str(addrRow[addrFields.index('DISTRICT')]))
+            countyRow.append(f'UT0{district}')
             # County Project COUNTYCODE
-            countyRow.append('UT' + addrRow[addrFields.index('CountyID')][-3:])
+            countyRow.append(f'UT{county_id[-3:]}')
             # County Project FILLER
             countyRow.append('')
             # County Project KEY
-            countyRow.append(addrRow[addrFields.index('OID@')])
+            countyRow.append(object_id)
             # County Project LATITUDE
-            countyRow.append(addrRow[addrFields.index('SHAPE@Y')])
+            countyRow.append(shape_y)
             # County Project LONGITUDE
-            countyRow.append(addrRow[addrFields.index('SHAPE@X')])
+            countyRow.append(shape_x)
             # CountyProject row insert
             countyProjectCursor.insertRow(countyRow)
             # County project rows
@@ -242,6 +245,7 @@ if __name__ == '__main__':
     headerString = ','.join(countyProjectFields)
     # List will be created for each id in county_ids
     # Output file should be a csv
+    print('Writing csv...')
     for county in counties:
         countyProjectCsv = os.path.join(output_folder, '{}_{}.csv'.format(county, uniqueRunNum))
         row_list = counties[county]
