@@ -5,38 +5,6 @@ from time import strftime
 
 import arcpy
 
-fips_to_county = {
-    49025: 'KANE',
-    49027: 'MILLARD',
-    49039: 'SANPETE',
-    49007: 'CARBON',
-    49049: 'UTAH',
-    49005: 'CACHE',
-    49043: 'SUMMIT',
-    49053: 'WASHINGTON',
-    49019: 'GRAND',
-    49047: 'UINTAH',
-    49045: 'TOOELE',
-    49041: 'SEVIER',
-    49017: 'GARFIELD',
-    49003: 'BOX ELDER',
-    49021: 'IRON',
-    49057: 'WEBER',
-    49015: 'EMERY',
-    49033: 'RICH',
-    49051: 'WASATCH',
-    49001: 'BEAVER',
-    49009: 'DAGGETT',
-    49011: 'DAVIS',
-    49055: 'WAYNE',
-    49031: 'PIUTE',
-    49029: 'MORGAN',
-    49035: 'SALT LAKE',
-    49013: 'DUCHESNE',
-    49023: 'JUAB',
-    49037: 'SAN JUAN',
-}
-
 if __name__ == '__main__':
 
     unique_run_id = strftime("%Y%m%d_%H%M%S")
@@ -45,12 +13,64 @@ if __name__ == '__main__':
     #: Source data
     county_ids = ['49055']
     source_gdb = r'c:\gis\projects\fastdata\USPSAddress\Address.gdb'
-    source_fc_name = 'WayneCo20200923'
-    source_fc_path = Path(source_gdb, source_fc_name)
+    address_source_fc_name = 'WayneCo20200923'
+    address_source_fc_path = Path(source_gdb, address_source_fc_name)
 
     #: Static configuration data
     schema_template = r'c:\gis\git\usps-county-project\County_Project_Submission_Template.gdb\CP_Submit_template'
     sgid_connection = r'c:\gis\projects\fastdata\internal.agrc.utah.gov.sde'
+
+    # Fields to be converted to USPS county project format.
+    # 'CountyID', 'FullAdd', 'City', 'ZipCode' must exist in the addressPoints table.
+    source_fields = ['OID@', 'CountyID', 'FullAdd', 'City', 'ZipCode', 'DISTRICT', 'SHAPE@Y', 'SHAPE@X']
+
+    output_fields = [
+        'NAME',
+        'COMPANYNAME',
+        'ADDRESSLINE',
+        'CITY',
+        'STATE',
+        'ZIP5',
+        'ZIP4',
+        'CONGRESSIONALCODE',
+        'COUNTYCODE',
+        'FILLER',
+        'KEY',
+        'LATITUDE',
+        'LONGITUDE',
+    ]
+
+    fips_to_county = {
+        49025: 'KANE',
+        49027: 'MILLARD',
+        49039: 'SANPETE',
+        49007: 'CARBON',
+        49049: 'UTAH',
+        49005: 'CACHE',
+        49043: 'SUMMIT',
+        49053: 'WASHINGTON',
+        49019: 'GRAND',
+        49047: 'UINTAH',
+        49045: 'TOOELE',
+        49041: 'SEVIER',
+        49017: 'GARFIELD',
+        49003: 'BOX ELDER',
+        49021: 'IRON',
+        49057: 'WEBER',
+        49015: 'EMERY',
+        49033: 'RICH',
+        49051: 'WASATCH',
+        49001: 'BEAVER',
+        49009: 'DAGGETT',
+        49011: 'DAVIS',
+        49055: 'WAYNE',
+        49031: 'PIUTE',
+        49029: 'MORGAN',
+        49035: 'SALT LAKE',
+        49013: 'DUCHESNE',
+        49023: 'JUAB',
+        49037: 'SAN JUAN',
+    }
 
     #: Set up output locations
     print('Setting up output spaces...')
@@ -73,33 +93,13 @@ if __name__ == '__main__':
     congressional_districts_fc_path = Path(sgid_connection, 'SGID.POLITICAL.USCongressDistricts2012')
     identify_result_fc_path = Path(output_folder, output_gdb_name, 'Addresses_Districts' + unique_run_id)
 
-    output_fields = [
-        'NAME',
-        'COMPANYNAME',
-        'ADDRESSLINE',
-        'CITY',
-        'STATE',
-        'ZIP5',
-        'ZIP4',
-        'CONGRESSIONALCODE',
-        'COUNTYCODE',
-        'FILLER',
-        'KEY',
-        'LATITUDE',
-        'LONGITUDE',
-    ]
-
-    # Fields to be converted to USPS county project format.
-    # 'CountyID', 'FullAdd', 'City', 'ZipCode' must exist in the addressPoints table.
-    source_fields = ['OID@', 'CountyID', 'FullAdd', 'City', 'ZipCode', 'DISTRICT', 'SHAPE@Y', 'SHAPE@X']
-
     # Set with county_ids list
     county_selection_where = None
     if county_ids:
         county_ids_string = ','.join(county_ids)
         county_selection_where = f"CountyID IN ('{county_ids_string}')"
     address_layer = 'addrpoints_' + unique_run_id
-    arcpy.MakeFeatureLayer_management(str(source_fc_path), address_layer, county_selection_where)
+    arcpy.MakeFeatureLayer_management(str(address_source_fc_path), address_layer, county_selection_where)
 
     #: Get the congressional district for each address point
     print('Running Congressional District identify...')
