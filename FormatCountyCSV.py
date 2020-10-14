@@ -1,3 +1,7 @@
+"""
+OBSOLETE?
+"""
+
 import csv
 if __name__ == '__main__':
     countyFile = r'C:\GisWork\UspsCountyProject\CountyProjectOutputFile.txt'
