@@ -14,7 +14,7 @@ Thus far, we don't actually do anything with the review files returned by the US
 1. Copy the address points you want to submit to a local gdb
     - You may be able to pass the statewide address point layer because the script uses a where clause to find the desired counties, but this has not been tested.
 1. Change the source, static, and output location data in agrc_county_project.py
-1. Run the script: `python agrc_county_procject.py`
+1. Run the script: `python agrc_county_project.py`
 1. Package and send the resulting CSV file according to the projects in the pdf.
 
 PDF Source (as of Oct 2020): https://postalpro.usps.com/CountyProject_SOP
