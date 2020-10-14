@@ -1,11 +1,11 @@
-from pathlib import Path
-
-import arcpy
-import os
+from collections import defaultdict
 import csv
+from pathlib import Path
 from time import strftime
 
-countyFipsDomain = {
+import arcpy
+
+fips_to_county = {
     49025: 'KANE',
     49027: 'MILLARD',
     49039: 'SANPETE',
@@ -37,87 +37,20 @@ countyFipsDomain = {
     49037: 'SAN JUAN',
 }
 
-# fixedTxtFields = [
-#     'CCONTACT NAME',
-#     'COMPANY NAME',
-#     'ADDRESS LINE',
-#     'CITY',
-#     'STATE',
-#     'ZIP5',
-#     'ZIP4',
-#     'CONGRESSIONAL CODE',
-#     'COUNTY CODE',
-#     'FILLER',
-#     'Key',
-#     'LATITUDE',
-#     'LONGITUDE',
-# ]
-
-# fixedTxtFieldLengths = [
-#     42,
-#     66,
-#     66,
-#     28,
-#     2,
-#     5,
-#     4,
-#     4,
-#     5,
-#     19,
-#     50,
-#     15,
-#     15,
-# ]
-
-# def createFixedLengthText(row):
-#     fieldLengths = fixedTxtFieldLengths
-#     try:
-#         fields = list(row)
-#         for i in range(11):
-#             fields[i] = fields[i][:fieldLengths[i]] + (fieldLengths[i] - len(fields[i])) * ' '
-#             if len(fields[i]) != fieldLengths[i]:
-#                 print(f'Field length error: {fields[i]}')
-#         for i in (11, 12):
-#             fields[i] = (fieldLengths[i] - len(fields[i])) * ' ' + fields[i][:fieldLengths[i]]
-#             if len(fields[i]) != fieldLengths[i]:
-#                 print(f'Field length error: {fields[i]}')
-#     except:
-#         print(row)
-
-#     return ''.join(fields)
-
-
-def createCsvRow(row):
-    try:
-        fields = list(row)
-        fields[2] = fields[2].upper()
-        fields[3] = fields[3].upper()
-        fields[6] = ''
-        fields[-1] = fields[-1][:15]
-        fields[-2] = fields[-2][:15]
-    except:
-        print(row)
-
-    return ','.join(fields)
-
-
-# def getFieldI(fieldName):
-#     return addrFields.index(fieldName)
-
 if __name__ == '__main__':
 
     unique_run_id = strftime("%Y%m%d_%H%M%S")
     print(unique_run_id)
 
+    #: Source data
     county_ids = ['49055']
+    source_gdb = r'c:\gis\projects\fastdata\USPSAddress\Address.gdb'
+    source_fc_name = 'WayneCo20200923'
+    source_fc_path = Path(source_gdb, source_fc_name)
 
+    #: Static configuration data
     schema_template = r'c:\gis\git\usps-county-project\County_Project_Submission_Template.gdb\CP_Submit_template'
     sgid_connection = r'c:\gis\projects\fastdata\internal.agrc.utah.gov.sde'
-
-    #: Source data
-    addressPointsWorkspace = r'c:\gis\projects\fastdata\USPSAddress\Address.gdb'
-    source_fc_name = 'WayneCo20200923'
-    source_fc_path = Path(addressPointsWorkspace, source_fc_name)
 
     #: Set up output locations
     print('Setting up output spaces...')
@@ -130,15 +63,15 @@ if __name__ == '__main__':
     if not arcpy.Exists(str(output_gdb_path)):
         arcpy.CreateFileGDB_management(output_folder, output_gdb_name)
 
-    #: Pre-CSV output feature class
-    output_fc_path = Path(output_gdb_path, f'countyProject_{unique_run_id}')
+    #: USPS-formatted data as a non-spatial feature class (necessary???)
+    output_fc_path = Path(output_gdb_path, f'CountyProject_{unique_run_id}')
     arcpy.CreateFeatureclass_management(
-        str(output_gdb_path), f'countyProject_{unique_run_id}', template=schema_template
+        str(output_gdb_path), f'CountyProject_{unique_run_id}', template=schema_template
     )
 
     #: District identity datasets
     congressional_districts_fc_path = Path(sgid_connection, 'SGID.POLITICAL.USCongressDistricts2012')
-    identify_result_fc_path = Path(output_folder, output_gdb_name, 'addressPointsProject' + unique_run_id)
+    identify_result_fc_path = Path(output_folder, output_gdb_name, 'Addresses_Districts' + unique_run_id)
 
     output_fields = [
         'NAME',
@@ -156,45 +89,13 @@ if __name__ == '__main__':
         'LONGITUDE',
     ]
 
-    counties = {
-        'KANE': [],
-        'MILLARD': [],
-        'SANPETE': [],
-        'CARBON': [],
-        'UTAH': [],
-        'CACHE': [],
-        'SUMMIT': [],
-        'WASHINGTON': [],
-        'GRAND': [],
-        'UINTAH': [],
-        'TOOELE': [],
-        'SEVIER': [],
-        'GARFIELD': [],
-        'BOX ELDER': [],
-        'IRON': [],
-        'WEBER': [],
-        'EMERY': [],
-        'RICH': [],
-        'WASATCH': [],
-        'BEAVER': [],
-        'DAGGETT': [],
-        'DAVIS': [],
-        'WAYNE': [],
-        'PIUTE': [],
-        'MORGAN': [],
-        'SALT LAKE': [],
-        'DUCHESNE': [],
-        'JUAB': [],
-        'SAN JUAN': [],
-    }
-
     # Fields to be converted to USPS county project format.
     # 'CountyID', 'FullAdd', 'City', 'ZipCode' must exist in the addressPoints table.
     source_fields = ['OID@', 'CountyID', 'FullAdd', 'City', 'ZipCode', 'DISTRICT', 'SHAPE@Y', 'SHAPE@X']
 
     # Set with county_ids list
     county_selection_where = None
-    if len(county_ids) > 0:
+    if county_ids:
         county_ids_string = ','.join(county_ids)
         county_selection_where = f"CountyID IN ('{county_ids_string}')"
     address_layer = 'addrpoints_' + unique_run_id
@@ -206,62 +107,57 @@ if __name__ == '__main__':
     arcpy.env.geographicTransformations = 'NAD_1983_To_WGS_1984_5'
     arcpy.Identity_analysis(address_layer, str(congressional_districts_fc_path), str(identify_result_fc_path))
 
-    #: Copy address points w/district info to countyProject feature class
-    print('Copying data to output feature class and list...')
-    with arcpy.da.SearchCursor(str(identify_result_fc_path), source_fields) as source_cursor,\
-         arcpy.da.InsertCursor(str(output_fc_path), output_fields) as output_cursor:
+    #: Copy address points w/district info to dict of counties containing list of dicts of addresses
+    #: {county: [{address, city, etc}, ...], ...}
+    print('Loading and formatting source data...')
+    counties = defaultdict(list)  #: defaultdict adds new key with an empty list if key is not yet present
 
-        for source_address_row in source_cursor:
-            object_id, county_id, full_address, city, zip_code, district, shape_y, shape_x = source_address_row
-            output_address_row = []
-            # County Project NAME
-            output_address_row.append(countyFipsDomain[int(county_id)])
-            # County Project COMPANYNAME
-            output_address_row.append('AGRC')
-            # County Project ADDRESSLINE
-            output_address_row.append(full_address)
-            # County Project CITY
-            output_address_row.append(city)
-            # County Project STATE
-            output_address_row.append('UT')
-            # County Project ZIP5
-            output_address_row.append(zip_code)
-            # County Project ZIP4
-            output_address_row.append(0)
-            # County Project CONGRESSIONALCODE
-            output_address_row.append(f'UT0{district}')
-            # County Project COUNTYCODE
-            output_address_row.append(f'UT{county_id[-3:]}')
-            # County Project FILLER
-            output_address_row.append('')
-            # County Project KEY
-            output_address_row.append(object_id)
-            # County Project LATITUDE
-            output_address_row.append(shape_y)
-            # County Project LONGITUDE
-            output_address_row.append(shape_x)
-            # CountyProject row insert
-            output_cursor.insertRow(output_address_row)
-            # County project rows
-            counties[output_address_row[0]].append(output_address_row)
+    with arcpy.da.SearchCursor(str(identify_result_fc_path), source_fields) as source_cursor:
+        for row in source_cursor:
+            object_id, county_id, full_address, city, zip_code, district, shape_y, shape_x = row
 
-    headerString = ','.join(output_fields)
-    # List will be created for each id in county_ids
-    # Output file should be a csv
-    print('Writing csv...')
-    for county in counties:
+            formatted_address = dict.fromkeys(output_fields)
+            county_name = fips_to_county[int(county_id)]
+
+            formatted_address['NAME'] = county_name
+            formatted_address['COMPANYNAME'] = 'AGRC'
+            formatted_address['ADDRESSLINE'] = full_address.upper()
+            formatted_address['CITY'] = city.upper()
+            formatted_address['STATE'] = 'UT'
+            formatted_address['ZIP5'] = zip_code
+            formatted_address['ZIP4'] = None
+            formatted_address['CONGRESSIONALCODE'] = f'UT0{district}'
+            formatted_address['COUNTYCODE'] = f'UT{county_id[-3:]}'
+            formatted_address['FILLER'] = ''
+            formatted_address['KEY'] = object_id
+            formatted_address['LATITUDE'] = str(shape_y)[:15]
+            formatted_address['LONGITUDE'] = str(shape_x)[:15]
+
+            counties[county_name].append(formatted_address)
+
+    print('Writing to feature class...')
+    with arcpy.da.InsertCursor(str(output_fc_path), output_fields) as output_cursor:
+        #: Loop through all counties
+        for county, addresses in counties.items():
+
+            #: Loop through all records for that county
+            for record in addresses:
+                output_row = []
+
+                #: Build row using output_fields to ensure field order (insertion order not guaranteed in python < 3.7)
+                for field_name in output_fields:
+                    output_row.append(record[field_name])
+
+                output_cursor.insertRow(output_row)
+
+    #: Create output csv for USPS for every county in counties
+    print('Writing to csv...')
+    for county, addresses in counties.items():
         output_csv_path = Path(output_folder, f'{county}_{unique_run_id}.csv')
-        row_list = counties[county]
-        if len(row_list) > 0:
-            with open(output_csv_path, 'w') as output_file:
-                output_file.write(headerString + '\n')
-                for row in row_list:
-                    try:
-                        rowString = createCsvRow([str(x) for x in row])
-                        output_file.write(rowString + '\n')
-                    except:
-                        print(row)
-
-                output_file.write('\n')
+        if addresses:
+            with open(output_csv_path, 'w', newline='\n') as output_file:
+                csv_writer = csv.DictWriter(output_file, output_fields)
+                csv_writer.writeheader()
+                csv_writer.writerows(addresses)
 
     print('! - complete - !')
