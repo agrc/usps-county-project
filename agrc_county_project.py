@@ -93,7 +93,7 @@ if __name__ == '__main__':
     congressional_districts_fc_path = Path(sgid_connection, 'SGID.POLITICAL.USCongressDistricts2012')
     identify_result_fc_path = Path(output_folder, output_gdb_name, 'Addresses_Districts' + unique_run_id)
 
-    # Set with county_ids list
+    #: Make layer of only our specified counties
     county_selection_where = None
     if county_ids:
         county_ids_string = ','.join(county_ids)
