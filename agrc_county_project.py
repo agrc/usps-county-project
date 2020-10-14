@@ -91,14 +91,14 @@ if __name__ == '__main__':
 
     #: District identity datasets
     congressional_districts_fc_path = Path(sgid_connection, 'SGID.POLITICAL.USCongressDistricts2012')
-    identify_result_fc_path = Path(output_folder, output_gdb_name, 'Addresses_Districts' + unique_run_id)
+    identify_result_fc_path = Path(output_folder, output_gdb_name, f'Addresses_Districts{unique_run_id}')
 
     #: Make layer of only our specified counties
     county_selection_where = None
     if county_ids:
         county_ids_string = ','.join(county_ids)
         county_selection_where = f"CountyID IN ('{county_ids_string}')"
-    address_layer = 'addrpoints_' + unique_run_id
+    address_layer = f'addrpoints_{unique_run_id}'
     arcpy.MakeFeatureLayer_management(str(address_source_fc_path), address_layer, county_selection_where)
 
     #: Get the congressional district for each address point
