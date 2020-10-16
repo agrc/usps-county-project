@@ -11,18 +11,18 @@ if __name__ == '__main__':
     print(unique_run_id)
 
     #: Source data
-    county_ids = ['49055']
+    county_ids = ['49027']
     source_gdb = r'c:\gis\projects\fastdata\USPSAddress\Address.gdb'
-    address_source_fc_name = 'WayneCo20200923'
+    address_source_fc_name = 'Millard20201014'
     address_source_fc_path = Path(source_gdb, address_source_fc_name)
 
     #: Static configuration data
     schema_template = r'c:\gis\git\usps-county-project\County_Project_Submission_Template.gdb\CP_Submit_template'
-    sgid_connection = r'c:\gis\projects\fastdata\internal.agrc.utah.gov.sde'
+    sgid_connection = r'c:\gis\projects\fastdata\opensgid.agrc.utah.gov.sde'
 
     # Fields to be converted to USPS county project format.
     # 'CountyID', 'FullAdd', 'City', 'ZipCode' must exist in the addressPoints table.
-    source_fields = ['OID@', 'CountyID', 'FullAdd', 'City', 'ZipCode', 'DISTRICT', 'SHAPE@Y', 'SHAPE@X']
+    source_fields = ['OID@', 'CountyID', 'FullAdd', 'City', 'ZipCode', 'DISTRICT', 'name', 'SHAPE@Y', 'SHAPE@X']
 
     output_fields = [
         'NAME',
@@ -90,8 +90,13 @@ if __name__ == '__main__':
     )
 
     #: District identity datasets
-    congressional_districts_fc_path = Path(sgid_connection, 'SGID.POLITICAL.USCongressDistricts2012')
-    identify_result_fc_path = Path(output_folder, output_gdb_name, f'Addresses_Districts{unique_run_id}')
+    congressional_districts_fc_path = Path(sgid_connection, 'opensgid.political.us_congress_districts')
+    identify_result_fc_path = Path(output_folder, output_gdb_name, f'Addresses_Districts_{unique_run_id}')
+
+    #: City name spatial join datasets
+    #: TODO: Should we do a definition query on the nearest points to ensure it gets a town in the same county? Do zip codes follow County boundaries?
+    city_names_fc_path = Path(sgid_connection, 'opensgid.location.city_and_town_locations')
+    spatial_join_fc_path = Path(output_folder, output_gdb_name, f'City_Name_Spatial_Join_{unique_run_id}')
 
     #: Make layer of only our specified counties
     county_selection_where = None
@@ -107,14 +112,25 @@ if __name__ == '__main__':
     arcpy.env.geographicTransformations = 'NAD_1983_To_WGS_1984_5'
     arcpy.Identity_analysis(address_layer, str(congressional_districts_fc_path), str(identify_result_fc_path))
 
+    #: Get the nearest city point to be used as city name for unicorporated areas
+    print('Running nearest city spatial join...')
+    arcpy.SpatialJoin_analysis(
+        str(identify_result_fc_path),
+        str(city_names_fc_path),
+        str(spatial_join_fc_path),
+        match_option='CLOSEST',
+        search_radius='50 Miles',
+        distance_field_name='MatchDistance'
+    )
+
     #: Copy address points w/district info to dict of counties containing list of dicts of addresses
     #: {county: [{address, city, etc}, ...], ...}
     print('Loading and formatting source data...')
     counties = defaultdict(list)  #: defaultdict adds new key with an empty list if key is not yet present
 
-    with arcpy.da.SearchCursor(str(identify_result_fc_path), source_fields) as source_cursor:
+    with arcpy.da.SearchCursor(str(spatial_join_fc_path), source_fields) as source_cursor:
         for row in source_cursor:
-            object_id, county_id, full_address, city, zip_code, district, shape_y, shape_x = row
+            object_id, county_id, full_address, city, zip_code, district, nearest_city, shape_y, shape_x = row
 
             formatted_address = dict.fromkeys(output_fields)
             county_name = fips_to_county[int(county_id)]
@@ -122,7 +138,7 @@ if __name__ == '__main__':
             formatted_address['NAME'] = county_name
             formatted_address['COMPANYNAME'] = 'AGRC'
             formatted_address['ADDRESSLINE'] = full_address.upper()
-            formatted_address['CITY'] = city.upper()
+            formatted_address['CITY'] = city.upper() if city.upper() else nearest_city.upper()
             formatted_address['STATE'] = 'UT'
             formatted_address['ZIP5'] = zip_code
             formatted_address['ZIP4'] = None
