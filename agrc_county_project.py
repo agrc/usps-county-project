@@ -11,9 +11,9 @@ if __name__ == '__main__':
     print(unique_run_id)
 
     #: Source data
-    county_ids = ['49027']
+    county_ids = ['49005']
     source_gdb = r'c:\gis\projects\fastdata\USPSAddress\Address.gdb'
-    address_source_fc_name = 'Millard20201014'
+    address_source_fc_name = 'CacheCo20201202'
     address_source_fc_path = Path(source_gdb, address_source_fc_name)
 
     #: Static configuration data
@@ -21,8 +21,11 @@ if __name__ == '__main__':
     sgid_connection = r'c:\gis\projects\fastdata\opensgid.agrc.utah.gov.sde'
 
     # Fields to be converted to USPS county project format.
-    # 'CountyID', 'FullAdd', 'City', 'ZipCode' must exist in the addressPoints table.
-    source_fields = ['OID@', 'CountyID', 'FullAdd', 'City', 'ZipCode', 'DISTRICT', 'name', 'SHAPE@Y', 'SHAPE@X']
+    # 'CountyID', 'FullAdd', 'City', 'ZipCode', 'addsystem' must exist in the addressPoints table.
+    source_fields = [
+        'OID@', 'CountyID', 'FullAdd', 'City', 'ZipCode', 'DISTRICT', 'name', 'addsystem', 'SHAPE@Y', 'SHAPE@X',
+        'SHAPE@'
+    ]
 
     output_fields = [
         'NAME',
@@ -38,6 +41,7 @@ if __name__ == '__main__':
         'KEY',
         'LATITUDE',
         'LONGITUDE',
+        'SHAPE@',
     ]
 
     fips_to_county = {
@@ -83,10 +87,15 @@ if __name__ == '__main__':
     if not arcpy.Exists(str(output_gdb_path)):
         arcpy.CreateFileGDB_management(output_folder, output_gdb_name)
 
-    #: USPS-formatted data as a non-spatial feature class (necessary???)
+    #: USPS-formatted data as a feature class
+    #: SHAPE@ geometery not written to CSV
     output_fc_path = Path(output_gdb_path, f'CountyProject_{unique_run_id}')
     arcpy.CreateFeatureclass_management(
-        str(output_gdb_path), f'CountyProject_{unique_run_id}', template=schema_template
+        str(output_gdb_path),
+        f'CountyProject_{unique_run_id}',
+        geometry_type='POINT',
+        template=schema_template,
+        spatial_reference=str(address_source_fc_path)
     )
 
     #: District identity datasets
@@ -128,17 +137,32 @@ if __name__ == '__main__':
     print('Loading and formatting source data...')
     counties = defaultdict(list)  #: defaultdict adds new key with an empty list if key is not yet present
 
+    #: Get a unique list of address systems in the dataset
+    #: Using a python set instead of list or dict
+    address_systems = set()
+    with arcpy.da.SearchCursor(str(spatial_join_fc_path), ['addsystem']) as addrsys_cursor:
+        address_systems = {row[0].upper() for row in addrsys_cursor}
+
     with arcpy.da.SearchCursor(str(spatial_join_fc_path), source_fields) as source_cursor:
         for row in source_cursor:
-            object_id, county_id, full_address, city, zip_code, district, nearest_city, shape_y, shape_x = row
+            object_id, county_id, full_address, city, zip_code, district, nearest_city, address_system, shape_y, shape_x, geometry = row
 
             formatted_address = dict.fromkeys(output_fields)
             county_name = fips_to_county[int(county_id)]
 
+            #: Use the nearest_city name unless there is a name provided in the address point data itself or it is
+            #: in the list of address systems (indicating it could have grabbed a name that was closer geographically
+            #: than topologically)
+            proper_city = nearest_city.upper()
+            if city.upper():
+                proper_city = city.upper()
+            elif nearest_city.upper() in address_systems:
+                proper_city = address_system
+
             formatted_address['NAME'] = county_name
             formatted_address['COMPANYNAME'] = 'AGRC'
             formatted_address['ADDRESSLINE'] = full_address.upper()
-            formatted_address['CITY'] = city.upper() if city.upper() else nearest_city.upper()
+            formatted_address['CITY'] = proper_city
             formatted_address['STATE'] = 'UT'
             formatted_address['ZIP5'] = zip_code
             formatted_address['ZIP4'] = None
@@ -148,6 +172,7 @@ if __name__ == '__main__':
             formatted_address['KEY'] = object_id
             formatted_address['LATITUDE'] = str(shape_y)[:15]
             formatted_address['LONGITUDE'] = str(shape_x)[:15]
+            formatted_address['SHAPE@'] = geometry
 
             counties[county_name].append(formatted_address)
 
@@ -168,11 +193,12 @@ if __name__ == '__main__':
 
     #: Create output csv for USPS for every county in counties
     print('Writing to csv...')
+    output_fields.remove('SHAPE@')  #: Don't include geometry in CSV
     for county, addresses in counties.items():
         output_csv_path = Path(output_folder, f'{county}_{unique_run_id}.csv')
         if addresses:
             with open(output_csv_path, 'w', newline='\n') as output_file:
-                csv_writer = csv.DictWriter(output_file, output_fields)
+                csv_writer = csv.DictWriter(output_file, output_fields, extrasaction='ignore')
                 csv_writer.writeheader()
                 csv_writer.writerows(addresses)
 
