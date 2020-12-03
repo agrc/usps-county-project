@@ -157,7 +157,11 @@ if __name__ == '__main__':
             if city.upper():
                 proper_city = city.upper()
             elif nearest_city.upper() in address_systems:
-                proper_city = address_system
+                proper_city = address_system.upper()
+
+            #: Take addr point city
+            #: Otherwise, take address system name
+            #: if near name is different than address system, take near name
 
             formatted_address['NAME'] = county_name
             formatted_address['COMPANYNAME'] = 'AGRC'
